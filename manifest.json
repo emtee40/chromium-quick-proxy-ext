@@ -1,0 +1,12 @@
+{
+	"name": "Quick Proxy",
+	"version": "1.0",
+	"description": "Quick and dirty proxy switcher for Chromium.",
+	"browser_action": {
+		"default_icon": "icon.png",
+		"default_popup": "popup.html"
+	},
+	"permissions": [
+		"proxy"
+	]
+}

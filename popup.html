@@ -1,0 +1,79 @@
+<html>
+<head>
+<style>
+body {
+	font-family: sans-serif;
+	margin: 0;
+	width: 200px;
+	height: 110px;
+}
+</style>
+<script>
+window.onload = function() {
+	chrome.proxy.settings.get({ incognito: false }, function(config) {
+		var inputs = document.getElementsByTagName("input");
+		var setPreset = false;
+		var parseUrl = function(url) {
+			return { scheme: url.substring(0, url.indexOf(":")), host: url.substring(url.lastIndexOf("/") + 1, url.lastIndexOf(":")), port: parseInt(url.substring(url.lastIndexOf(":") + 1)) };
+		};
+		var parseObject = function(obj) {
+			return obj.scheme + "://" + obj.host + ":" + obj.port;
+		};
+		for (var i = 0; i < inputs.length; ++i) {
+			if (inputs[i].value == "system") {
+				inputs[i].onclick = function() {
+					chrome.proxy.settings.set({ value: { mode: "system" }, scope: "regular" }, function() { window.close(); });
+				};
+				if (config.value.mode == "system")
+					inputs[i].checked = true;
+			} else if (inputs[i].value == "direct") {
+				inputs[i].onclick = function() {
+					chrome.proxy.settings.set({ value: { mode: "direct" }, scope: "regular" }, function() { window.close(); });
+				};
+				if (config.value.mode == "direct")
+					inputs[i].checked = true;
+			} else if (inputs[i].value == "other") {
+				var other = document.getElementById("other");
+				var setOther =  function() {
+					chrome.proxy.settings.set({ value: { mode: "fixed_servers", rules:
+						{ singleProxy: parseUrl(other.value) } },
+					scope: "regular" }, function() { window.close(); });
+				};
+				other.onblur = setOther;
+				var me = inputs[i];
+				window.onunload = function() {
+					if (me.checked)
+						setOther();
+				};
+				other.onkeypress = function() {
+					me.checked = true;
+				};
+				if (!setPreset && config.value.mode == "fixed_servers" && typeof config.value.rules.singleProxy != "undefined") {
+					other.value = parseObject(config.value.rules.singleProxy);
+					inputs[i].checked = true;
+				}
+			} else {
+				inputs[i].onclick = function() {
+					chrome.proxy.settings.set({ value: { mode: "fixed_servers", rules:
+						{ singleProxy: parseUrl(this.value) } },
+					scope: "regular" }, function() { window.close(); });
+				};
+				if (config.value.mode == "fixed_servers" && typeof config.value.rules.singleProxy != "undefined" && inputs[i].value == parseObject(config.value.rules.singleProxy)) {
+					inputs[i].checked = true;
+					setPreset = true;
+				}
+			}
+		}
+	});
+};
+</script>
+</head>
+<body>
+<label><input type="radio" name="proxy" value="socks5://localhost:1080" />socks5://localhost:1080</label><br />
+<label><input type="radio" name="proxy" value="socks5://localhost:9050" />socks5://localhost:9050</label><br />
+<label><input type="radio" name="proxy" value="http://localhost:8080" />http://localhost:8080</label><br />
+<label><input type="radio" name="proxy" value="other" /><input id="other" /></label><br />
+<label><input type="radio" name="proxy" value="system" />system</label><br />
+<label><input type="radio" name="proxy" value="direct" />direct</label>
+</body>
+</html>
