@@ -11,6 +11,9 @@ body {
 <script>
 window.onload = function() {
 	chrome.proxy.settings.get({ incognito: false }, function(config) {
+		var googleList = ["*.google.com", "google.com", "googleusercontent.com", "*.googleusercontent.com", "*.gstatic.com", "gstatic.com"];
+		var bypassList = [];
+		var lastSetFunction = function() { };
 		var inputs = document.getElementsByTagName("input");
 		var setPreset = false;
 		var parseUrl = function(url) {
@@ -19,50 +22,81 @@ window.onload = function() {
 		var parseObject = function(obj) {
 			return obj.scheme + "://" + obj.host + ":" + obj.port;
 		};
+		var closePopup = function() {
+			window.close();
+		};
 		for (var i = 0; i < inputs.length; ++i) {
-			if (inputs[i].value == "system") {
-				inputs[i].onclick = function() {
-					chrome.proxy.settings.set({ value: { mode: "system" }, scope: "regular" }, function() { window.close(); });
+			if (inputs[i].name == "google") (function(self) {
+				self.onclick = function() {
+					bypassList = self.checked ? googleList : [];
+					lastSetFunction.call(self);
 				};
-				if (config.value.mode == "system")
-					inputs[i].checked = true;
-			} else if (inputs[i].value == "direct") {
-				inputs[i].onclick = function() {
-					chrome.proxy.settings.set({ value: { mode: "direct" }, scope: "regular" }, function() { window.close(); });
+				
+				if (config.value.rules.bypassList.length > 0) {
+					self.checked = true;
+					bypassList = googleList;
+				}
+			})(inputs[i]);
+			else if (inputs[i].value == "system") (function(self) {
+				var setIt = function() {
+					chrome.proxy.settings.set({ value: { mode: "system" }, scope: "regular" }, closePopup);
+					lastSetFunction = setIt;
 				};
-				if (config.value.mode == "direct")
-					inputs[i].checked = true;
-			} else if (inputs[i].value == "other") {
+				self.onclick = setIt;
+
+				if (config.value.mode == "system") {
+					self.checked = true;
+					lastSetFunction = setIt;
+				}
+			})(inputs[i]);
+			else if (inputs[i].value == "direct") (function(self) {
+				var setIt = function() {
+					chrome.proxy.settings.set({ value: { mode: "direct" }, scope: "regular" }, closePopup);
+					lastSetFunction = setIt;
+				};
+				self.onclick = setIt;
+
+				if (config.value.mode == "direct") {
+					self.checked = true;
+					lastSetFunction = setIt;
+				}
+			})(inputs[i]);
+			else if (inputs[i].value == "other") (function(self) {
 				var other = document.getElementById("other");
-				var setOther =  function() {
+				var setIt =  function() {
 					chrome.proxy.settings.set({ value: { mode: "fixed_servers", rules:
-						{ singleProxy: parseUrl(other.value) } },
-					scope: "regular" }, function() { window.close(); });
+						{ singleProxy: parseUrl(other.value), bypassList: bypassList } },
+					scope: "regular" }, closePopup);
+					lastSetFunction = setIt;
 				};
-				other.onblur = setOther;
-				var me = inputs[i];
+				other.onblur = setIt;
 				window.onunload = function() {
-					if (me.checked)
-						setOther();
+					if (self.checked)
+						setIt.call(self);
 				};
 				other.onkeypress = function() {
-					me.checked = true;
+					self.checked = true;
 				};
 				if (!setPreset && config.value.mode == "fixed_servers" && typeof config.value.rules.singleProxy != "undefined") {
 					other.value = parseObject(config.value.rules.singleProxy);
-					inputs[i].checked = true;
+					self.checked = true;
+					lastSetFunction = setIt;
 				}
-			} else {
-				inputs[i].onclick = function() {
+			})(inputs[i]);
+			else (function(self) {
+				var setIt = function() {
 					chrome.proxy.settings.set({ value: { mode: "fixed_servers", rules:
-						{ singleProxy: parseUrl(this.value) } },
-					scope: "regular" }, function() { window.close(); });
+						{ singleProxy: parseUrl(self.value), bypassList: bypassList } },
+					scope: "regular" }, closePopup);
+					lastSetFunction = setIt;
 				};
-				if (config.value.mode == "fixed_servers" && typeof config.value.rules.singleProxy != "undefined" && inputs[i].value == parseObject(config.value.rules.singleProxy)) {
-					inputs[i].checked = true;
+				self.onclick = setIt;
+				if (config.value.mode == "fixed_servers" && typeof config.value.rules.singleProxy != "undefined" && self.value == parseObject(config.value.rules.singleProxy)) {
+					self.checked = true;
 					setPreset = true;
+					lastSetFunction = setIt;
 				}
-			}
+			})(inputs[i]);
 		}
 	});
 };
@@ -74,6 +108,7 @@ window.onload = function() {
 <label><input type="radio" name="proxy" value="http://localhost:8080" />http://localhost:8080</label><br />
 <label><input type="radio" name="proxy" value="other" /><input id="other" /></label><br />
 <label><input type="radio" name="proxy" value="system" />system</label><br />
-<label><input type="radio" name="proxy" value="direct" />direct</label>
+<label><input type="radio" name="proxy" value="direct" />direct</label><br />
+<label><input type="checkbox" name="google" />exclude google</label>
 </body>
 </html>
